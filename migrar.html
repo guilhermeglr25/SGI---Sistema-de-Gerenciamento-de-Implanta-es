@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Migração de Dados - SGI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        button {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #357ae8;
+        }
+        #resultado {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .sucesso {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .erro {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Migração localStorage → Firebase</h1>
+        <p>Esta página vai transferir todos os dados do localStorage para o Firebase.</p>
+        
+        <button onclick="verificarDados()">1️⃣ Verificar Dados no localStorage</button>
+        <button onclick="migrarDados()">2️⃣ Migrar Dados para Firebase</button>
+        <button onclick="verificarFirebase()">3️⃣ Verificar Dados no Firebase</button>
+        
+        <div id="resultado"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, addDoc, getDocs } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Sua configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDtFGPrvQpcmQEPfgtZCWNSbsSfnCRqnQM",
+            authDomain: "sgi-sistema.firebaseapp.com",
+            projectId: "sgi-sistema",
+            storageBucket: "sgi-sistema.firebasestorage.app",
+            messagingSenderId: "844986494867",
+            appId: "1:844986494867:web:4f46410cd2e219ee3cc266",
+            measurementId: "G-NXRH4592N5"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Função para verificar dados no localStorage
+        window.verificarDados = function() {
+            const resultado = document.getElementById('resultado');
+            resultado.className = 'info';
+            
+            try {
+                // Buscar todos os dados do localStorage
+                const usuarios = JSON.parse(localStorage.getItem('usuarios') || '[]');
+                const implantacoes = JSON.parse(localStorage.getItem('implantacoes') || '[]');
+                
+                let html = '<h3>📊 Dados encontrados no localStorage:</h3>';
+                html += `<p><strong>Usuários:</strong> ${usuarios.length}</p>`;
+                html += `<p><strong>Implantações:</strong> ${implantacoes.length}</p>`;
+                
+                if (usuarios.length > 0) {
+                    html += '<h4>Usuários:</h4><ul>';
+                    usuarios.forEach(u => {
+                        html += `<li>👤 ${u.usuario || u.nome || 'Sem nome'}</li>`;
+                    });
+                    html += '</ul>';
+                }
+                
+                if (implantacoes.length > 0) {
+                    html += '<h4>Implantações:</h4><ul>';
+                    implantacoes.slice(0, 5).forEach(i => {
+                        html += `<li>🏢 ${i.nomeCliente || 'Cliente sem nome'}</li>`;
+                    });
+                    if (implantacoes.length > 5) {
+                        html += `<li>... e mais ${implantacoes.length - 5}</li>`;
+                    }
+                    html += '</ul>';
+                }
+                
+                resultado.innerHTML = html;
+            } catch (error) {
+                resultado.className = 'erro';
+                resultado.innerHTML = `<p>❌ Erro ao ler localStorage: ${error.message}</p>`;
+            }
+        }
+
+        // Função para migrar dados
+        window.migrarDados = async function() {
+            const resultado = document.getElementById('resultado');
+            resultado.className = 'info';
+            resultado.innerHTML = '<p>⏳ Migrando dados... Aguarde...</p>';
+
+            try {
+                // Pegar dados do localStorage
+                const usuarios = JSON.parse(localStorage.getItem('usuarios') || '[]');
+                const implantacoes = JSON.parse(localStorage.getItem('implantacoes') || '[]');
+                
+                let migrados = 0;
+
+                // Migrar usuários
+                for (const usuario of usuarios) {
+                    await addDoc(collection(db, 'usuarios'), {
+                        ...usuario,
+                        migradoEm: new Date().toISOString()
+                    });
+                    migrados++;
+                }
+
+                // Migrar implantações
+                for (const implantacao of implantacoes) {
+                    await addDoc(collection(db, 'implantacoes'), {
+                        ...implantacao,
+                        migradoEm: new Date().toISOString()
+                    });
+                    migrados++;
+                }
+
+                resultado.className = 'sucesso';
+                resultado.innerHTML = `
+                    <h3>✅ Migração concluída com sucesso!</h3>
+                    <p><strong>${usuarios.length}</strong> usuários migrados</p>
+                    <p><strong>${implantacoes.length}</strong> implantações migradas</p>
+                    <p><strong>Total:</strong> ${migrados} documentos</p>
+                    <p>Agora clique no botão 3 para verificar no Firebase!</p>
+                `;
+            } catch (error) {
+                resultado.className = 'erro';
+                resultado.innerHTML = `<p>❌ Erro na migração: ${error.message}</p>`;
+                console.error('Erro detalhado:', error);
+            }
+        }
+
+        // Função para verificar dados no Firebase
+        window.verificarFirebase = async function() {
+            const resultado = document.getElementById('resultado');
+            resultado.className = 'info';
+            resultado.innerHTML = '<p>⏳ Buscando dados no Firebase...</p>';
+
+            try {
+                const usuariosSnap = await getDocs(collection(db, 'usuarios'));
+                const implantacoesSnap = await getDocs(collection(db, 'implantacoes'));
+                
+                let html = '<h3>☁️ Dados no Firebase:</h3>';
+                html += `<p><strong>Usuários:</strong> ${usuariosSnap.size}</p>`;
+                html += `<p><strong>Implantações:</strong> ${implantacoesSnap.size}</p>`;
+                
+                resultado.className = 'sucesso';
+                resultado.innerHTML = html;
+            } catch (error) {
+                resultado.className = 'erro';
+                resultado.innerHTML = `<p>❌ Erro ao ler Firebase: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
